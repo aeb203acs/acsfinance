@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ACS Finance — 2026/27</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #3D3530;
+    --ivory: #F7F3EC;
+    --stone: #E8E2D9;
+    --green: #1B3A2D;
+    --gold: #C9A84C;
+    --gold-light: #F0E6C8;
+    --terra: #C4552A;
+    --terra-light: #F5E5DF;
+    --muted: #8A7E78;
+    --success-text: #1B5C47;
+    --success-bg: #DFF0EA;
+    --info-bg: #E3F0FF;
+    --info-text: #1A4A7A;
+    --info-border: #B5D4F4;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    background: #EFECE6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Loading / Error states ── */
+  #loading-screen {
+    position: fixed; inset: 0;
+    background: var(--green);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 1rem; z-index: 100;
+    transition: opacity 0.4s;
+  }
+  #loading-screen.hidden { opacity: 0; pointer-events: none; }
+  .loading-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px; color: var(--ivory); font-weight: 700;
+  }
+  .loading-sub { font-size: 13px; color: rgba(247,243,236,0.55); letter-spacing: 0.06em; }
+  .loading-spinner {
+    width: 32px; height: 32px;
+    border: 2px solid rgba(201,168,76,0.3);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #error-banner {
+    display: none;
+    background: var(--terra-light);
+    border-bottom: 1px solid #E8C4BA;
+    padding: 0.75rem 2rem;
+    font-size: 13px; color: var(--terra);
+    align-items: center; gap: 0.5rem;
+  }
+  #error-banner.visible { display: flex; }
+
+  /* ── Layout ── */
+  #app { display: flex; flex: 1; min-height: 100vh; }
+
+  .spine {
+    width: 48px;
+    background: var(--green);
+    display: flex; flex-direction: column;
+    align-items: center; padding: 2rem 0; gap: 2rem;
+    position: sticky; top: 0; height: 100vh;
+    flex-shrink: 0; z-index: 20;
+  }
+  .spine-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px; color: var(--gold);
+    font-weight: 700; letter-spacing: 0.05em;
+  }
+  .spine-divider { width: 20px; height: 0.5px; background: rgba(201,168,76,0.2); }
+  .spine-label {
+    writing-mode: vertical-rl; text-orientation: mixed;
+    transform: rotate(180deg);
+    font-family: 'Playfair Display', serif;
+    font-size: 11px; letter-spacing: 0.15em;
+    cursor: pointer; padding: 0.5rem 0;
+    color: rgba(201,168,76,0.4);
+    transition: color 0.2s; text-transform: uppercase;
+    border: none; background: none;
+  }
+  .spine-label:hover, .spine-label.active { color: var(--gold); }
+  .spine-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: rgba(201,168,76,0.2);
+    transition: background 0.2s; cursor: pointer;
+    border: none;
+  }
+  .spine-dot.active { background: var(--gold); }
+
+  .main { flex: 1; overflow-x: hidden; }
+
+  /* ── Top balance bar ── */
+  .balance-bar {
+    background: var(--green); color: var(--ivory);
+    padding: 1rem 2rem;
+    display: flex; align-items: center;
+    justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .balance-bar-left { display: flex; flex-direction: column; gap: 2px; }
+  .balance-bar-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px; font-weight: 700;
+  }
+  .balance-bar-sub {
+    font-size: 10px; color: rgba(247,243,236,0.45);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .balance-figures { display: flex; gap: 2rem; align-items: baseline; flex-wrap: wrap; }
+  .bal-item { text-align: right; }
+  .bal-label { font-size: 10px; color: rgba(247,243,236,0.5); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 2px; }
+  .bal-value { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; }
+  .bal-value.profit { color: var(--gold); }
+  .bal-value.loss { color: #E8765A; }
+  .bal-value.neutral { color: var(--ivory); }
+
+  /* ── Chapters ── */
+  .chapter { padding: 2rem 2rem 1rem; max-width: 860px; }
+
+  .chapter-header {
+    display: flex; align-items: baseline; gap: 1rem;
+    margin-bottom: 1.25rem; padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--stone);
+    flex-wrap: wrap;
+  }
+  .chapter-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px; font-weight: 700; color: var(--green);
+  }
+  .chapter-balance { font-size: 12px; color: var(--muted); }
+  .chapter-balance strong { color: var(--ink); font-weight: 500; }
+
+  .chapter-summary {
+    background: var(--stone); border-radius: 8px;
+    padding: 0.75rem 1rem; margin-bottom: 1.25rem;
+    display: flex; gap: 2rem; flex-wrap: wrap;
+  }
+  .cs-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 2px; }
+  .cs-value { font-size: 15px; font-weight: 600; font-family: 'Playfair Display', serif; }
+
+  /* ── Week groups ── */
+  .week-group { margin-bottom: 1.25rem; }
+  .week-label {
+    font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 0.5rem; font-weight: 500;
+  }
+
+  /* ── Event cards ── */
+  .event-card {
+    background: white;
+    border: 0.5px solid #E0DBD5;
+    border-radius: 10px; margin-bottom: 0.5rem; overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .event-card.expanded { border-color: var(--green); }
+
+  .event-header {
+    display: flex; align-items: center;
+    padding: 0.65rem 1rem; cursor: pointer; gap: 0.75rem;
+    user-select: none;
+  }
+  .event-header:hover { background: #FAFAF8; }
+
+  .event-type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-profit { background: var(--gold); }
+  .dot-educational { background: #7DB5A0; }
+  .dot-social { background: #A89BC4; }
+
+  .event-name { flex: 1; font-size: 14px; font-weight: 500; }
+  .event-meta { display: flex; gap: 0.75rem; align-items: center; }
+
+  .event-tag {
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 2px 7px;
+    border-radius: 4px; font-weight: 500;
+  }
+  .tag-profit { background: var(--gold-light); color: #7A5C1A; }
+  .tag-educational { background: #DFF0EA; color: #1B5C47; }
+  .tag-social { background: #EDE9F6; color: #4A3878; }
+
+  .event-projected { font-size: 13px; font-weight: 500; min-width: 72px; text-align: right; }
+  .event-chevron { color: var(--muted); font-size: 16px; transition: transform 0.2s; }
+  .event-chevron.open { transform: rotate(180deg); }
+
+  .event-body {
+    padding: 0 1rem 1rem;
+    border-top: 0.5px solid #E0DBD5;
+  }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.75rem; }
+  .field-group label {
+    display: block; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; font-weight: 500;
+  }
+  .field-group input, .field-group select {
+    width: 100%; font-size: 13px; padding: 6px 8px;
+    border: 0.5px solid #ddd; border-radius: 6px;
+    background: #F9F8F6; color: var(--ink);
+    font-family: 'Inter', sans-serif;
+  }
+  .field-group input:focus, .field-group select:focus {
+    outline: none; border-color: var(--green);
+  }
+
+  .costs-section { margin-top: 0.75rem; }
+  .costs-title {
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted);
+    font-weight: 500; margin-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .cost-row {
+    display: grid; grid-template-columns: 1fr 90px 24px;
+    gap: 6px; margin-bottom: 4px; align-items: center;
+  }
+  .cost-row input {
+    font-size: 12px; padding: 4px 6px;
+    border: 0.5px solid #ddd; border-radius: 5px;
+    background: #F9F8F6; color: var(--ink);
+    font-family: 'Inter', sans-serif;
+  }
+  .btn-icon {
+    width: 22px; height: 22px; border: none;
+    background: none; cursor: pointer; color: var(--muted);
+    font-size: 16px; display: flex; align-items: center;
+    justify-content: center; border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .btn-icon:hover { background: var(--stone); color: var(--terra); }
+  .btn-add-cost {
+    font-size: 11px; color: var(--green); background: none;
+    border: 0.5px solid var(--green); border-radius: 5px;
+    padding: 3px 10px; cursor: pointer;
+    font-family: 'Inter', sans-serif; font-weight: 500;
+  }
+  .btn-add-cost:hover { background: var(--success-bg); }
+
+  .scenario-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 0.75rem; }
+  .scenario-block { padding: 8px 10px; border-radius: 7px; border: 0.5px solid; text-align: center; }
+  .scenario-block.pess { border-color: #E8C4BA; background: var(--terra-light); }
+  .scenario-block.exp  { border-color: #D4C9A0; background: var(--gold-light); }
+  .scenario-block.opt  { border-color: #A8D4C4; background: var(--success-bg); }
+  .s-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 3px; }
+  .s-value { font-size: 14px; font-weight: 600; font-family: 'Playfair Display', serif; }
+  .scenario-block.pess .s-value { color: var(--terra); }
+  .scenario-block.exp  .s-value { color: #7A5C1A; }
+  .scenario-block.opt  .s-value { color: var(--success-text); }
+
+  .card-actions { display: flex; justify-content: flex-end; margin-top: 0.75rem; }
+  .btn-remove {
+    font-size: 11px; color: var(--terra); background: none;
+    border: 0.5px solid #E8C4BA; border-radius: 5px;
+    padding: 4px 10px; cursor: pointer; display: flex;
+    align-items: center; gap: 4px; font-family: 'Inter', sans-serif;
+  }
+  .btn-remove:hover { background: var(--terra-light); }
+
+  /* ── Sponsor card ── */
+  .sponsor-card {
+    background: var(--info-bg); border: 0.5px solid var(--info-border);
+    border-radius: 10px; padding: 0.9rem 1.25rem; margin-bottom: 0.75rem;
+  }
+  .sponsor-header { display: flex; align-items: center; gap: 8px; margin-bottom: 0.6rem; }
+  .sponsor-header span { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--info-text); }
+  .sponsor-grid { display: grid; grid-template-columns: 1fr 110px; gap: 8px; align-items: center; }
+  .sponsor-grid input {
+    font-size: 13px; padding: 5px 8px;
+    border: 0.5px solid var(--info-border); border-radius: 6px;
+    background: white; font-family: 'Inter', sans-serif; color: var(--ink);
+  }
+
+  /* ── Easter placeholder ── */
+  .easter-placeholder { padding: 3rem 2rem; text-align: center; }
+  .easter-placeholder p { font-family: 'Playfair Display', serif; font-size: 16px; color: var(--muted); font-style: italic; }
+  .easter-handover { margin-top: 1rem; font-size: 13px; color: var(--green); font-weight: 500; }
+
+  /* ── Add event button ── */
+  .btn-add-event {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--green); background: none;
+    border: 0.5px dashed var(--green); border-radius: 8px;
+    padding: 8px 14px; cursor: pointer;
+    font-family: 'Inter', sans-serif; font-weight: 500;
+    width: 100%; margin-top: 0.5rem; transition: background 0.15s;
+  }
+  .btn-add-event:hover { background: var(--success-bg); }
+
+  /* ── Refresh button ── */
+  .refresh-bar {
+    background: var(--ivory); border-bottom: 0.5px solid var(--stone);
+    padding: 0.5rem 2rem; display: flex; align-items: center;
+    justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  }
+  .refresh-note { font-size: 11px; color: var(--muted); }
+  .btn-refresh {
+    font-size: 11px; color: var(--green); background: none;
+    border: 0.5px solid var(--green); border-radius: 5px;
+    padding: 4px 12px; cursor: pointer; display: flex;
+    align-items: center; gap: 5px; font-family: 'Inter', sans-serif;
+    font-weight: 500;
+  }
+  .btn-refresh:hover { background: var(--success-bg); }
+  .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .chapter-divider { height: 0.5px; background: var(--stone); margin: 0 2rem; }
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="loading-title">ACS Finance</div>
+  <div class="loading-spinner"></div>
+  <div class="loading-sub">Loading from Google Sheets…</div>
+</div>
+
+<div id="error-banner">
+  <i class="ti ti-alert-circle"></i>
+  <span id="error-msg">Could not load data from Google Sheets. Showing last cached data.</span>
+</div>
+
+<div id="app">
+  <nav class="spine" aria-label="Term navigation">
+    <div class="spine-logo">ACS</div>
+    <div class="spine-divider"></div>
+    <button class="spine-label active" data-target="mich" onclick="scrollToTerm('mich')">Michaelmas</button>
+    <div class="spine-dot active" data-target="mich" onclick="scrollToTerm('mich')"></div>
+    <button class="spine-label" data-target="lent" onclick="scrollToTerm('lent')">Lent</button>
+    <div class="spine-dot" data-target="lent" onclick="scrollToTerm('lent')"></div>
+    <button class="spine-label" data-target="easter" onclick="scrollToTerm('easter')">Easter</button>
+    <div class="spine-dot" data-target="easter" onclick="scrollToTerm('easter')"></div>
+  </nav>
+
+  <div class="main">
+    <div class="balance-bar">
+      <div class="balance-bar-left">
+        <div class="balance-bar-title">Society Finance 2026/27</div>
+        <div class="balance-bar-sub">African Caribbean Society · Cambridge</div>
+      </div>
+      <div class="balance-figures">
+        <div class="bal-item">
+          <div class="bal-label">Opening balance</div>
+          <div class="bal-value neutral" id="top-opening">—</div>
+        </div>
+        <div class="bal-item">
+          <div class="bal-label">Expected net P&amp;L</div>
+          <div class="bal-value neutral" id="top-pnl">—</div>
+        </div>
+        <div class="bal-item">
+          <div class="bal-label">Projected closing</div>
+          <div class="bal-value neutral" id="top-closing">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="refresh-bar">
+      <span class="refresh-note" id="last-updated">Data loaded from Google Sheets</span>
+      <button class="btn-refresh" id="btn-refresh" onclick="loadFromSheets()">
+        <i class="ti ti-refresh"></i> Refresh from Sheets
+      </button>
+    </div>
+
+    <div id="chapters-container"></div>
+  </div>
+</div>
+
+<script>
+const SHEETS = {
+  events:   'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvkUb8E7YszHNebUSKfrs6L7OrYHr5HMYjm9JjxCQWNea-GpD4Z5R6C_Ssh-NnPgM67E4ivpqhBh8V/pub?gid=0&single=true&output=csv',
+  sponsors: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvkUb8E7YszHNebUSKfrs6L7OrYHr5HMYjm9JjxCQWNea-GpD4Z5R6C_Ssh-NnPgM67E4ivpqhBh8V/pub?gid=1539181853&single=true&output=csv',
+  config:   'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvkUb8E7YszHNebUSKfrs6L7OrYHr5HMYjm9JjxCQWNea-GpD4Z5R6C_Ssh-NnPgM67E4ivpqhBh8V/pub?gid=964963254&single=true&output=csv'
+};
+
+const CACHE_KEY = 'acs_finance_cache';
+
+let state = {
+  opening: 744.54,
+  sponsors: [],
+  events: [],
+  expanded: {},
+  nextId: 1000
+};
+
+/* ── CSV parser ── */
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  return lines.slice(1).map(line => {
+    const vals = [];
+    let cur = ''; let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { vals.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    vals.push(cur.trim());
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (vals[i] || '').replace(/^"|"$/g, ''); });
+    return obj;
+  });
+}
+
+function parseCosts(str) {
+  if (!str || !str.trim()) return [];
+  return str.split(',').map(item => {
+    const parts = item.split(':');
+    return { desc: (parts[0] || '').trim(), amt: parseFloat(parts[1]) || 0 };
+  }).filter(c => c.desc);
+}
+
+/* ── Fetch & parse ── */
+async function fetchCSV(url) {
+  const res = await fetch(url + '&t=' + Date.now());
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return parseCSV(await res.text());
+}
+
+async function loadFromSheets() {
+  const btn = document.getElementById('btn-refresh');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-refresh" style="animation:spin 0.8s linear infinite"></i> Loading…';
+
+  try {
+    const [evRows, spRows, cfRows] = await Promise.all([
+      fetchCSV(SHEETS.events),
+      fetchCSV(SHEETS.sponsors),
+      fetchCSV(SHEETS.config)
+    ]);
+
+    const cfMap = {};
+    cfRows.forEach(r => { if (r.key) cfMap[r.key] = r.value; });
+    state.opening = parseFloat(cfMap['opening_balance']) || 744.54;
+
+    state.events = evRows.map(r => ({
+      id: 'e' + r.id,
+      term: r.term || 'mich',
+      week: parseInt(r.week) || 1,
+      name: r.name || 'Unnamed Event',
+      type: r.type || 'social',
+      tickets: parseFloat(r.tickets) || 0,
+      soldExp: parseFloat(r.soldExp) || 0,
+      ticketPrice: parseFloat(r.ticketPrice) || 0,
+      costs: parseCosts(r.costs),
+      pessMulti: 0.7,
+      optMulti: 1.3
+    }));
+
+    state.sponsors = spRows.map((r, i) => ({
+      id: 'sp' + i,
+      name: r.name || 'Sponsor',
+      amount: parseFloat(r.amount) || 0,
+      term: r.term || 'mich'
+    }));
+
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ opening: state.opening, events: state.events, sponsors: state.sponsors, ts: Date.now() }));
+
+    document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+    document.getElementById('error-banner').classList.remove('visible');
+    renderAll();
+  } catch (err) {
+    console.error(err);
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const d = JSON.parse(cached);
+      state.opening = d.opening; state.events = d.events; state.sponsors = d.sponsors;
+      const ago = Math.round((Date.now() - d.ts) / 60000);
+      document.getElementById('error-msg').textContent = 'Could not reach Google Sheets. Showing cached data from ' + ago + ' min ago.';
+      renderAll();
+    } else {
+      document.getElementById('error-msg').textContent = 'Could not load data and no cache found. Check your internet connection.';
+    }
+    document.getElementById('error-banner').classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-refresh"></i> Refresh from Sheets';
+    document.getElementById('loading-screen').classList.add('hidden');
+  }
+}
+
+/* ── Finance calculations ── */
+function fmt(n) {
+  const abs = Math.abs(n);
+  return (n < 0 ? '-' : '') + '£' + abs.toFixed(2);
+}
+
+function eventProfit(ev, scenario) {
+  const totalCost = ev.costs.reduce((s, c) => s + (parseFloat(c.amt) || 0), 0);
+  let sold = ev.soldExp;
+  if (scenario === 'pess') sold = Math.round(ev.soldExp * ev.pessMulti);
+  if (scenario === 'opt') sold = Math.min(ev.tickets || ev.soldExp * 1.5, Math.round(ev.soldExp * ev.optMulti));
+  return (sold * (parseFloat(ev.ticketPrice) || 0)) - totalCost;
+}
+
+function termProfit(term, scenario) {
+  const evTotal = state.events.filter(e => e.term === term).reduce((s, e) => s + eventProfit(e, scenario), 0);
+  const spTotal = state.sponsors.filter(s => s.term === term).reduce((s, sp) => s + (parseFloat(sp.amount) || 0), 0);
+  return evTotal + spTotal;
+}
+
+/* ── In-page editing (local only — does not write back to Sheets) ── */
+function updateEvent(id, field, val) {
+  const ev = state.events.find(e => e.id === id);
+  if (!ev) return;
+  if (['ticketPrice', 'tickets', 'soldExp', 'pessMulti', 'optMulti'].includes(field)) ev[field] = parseFloat(val) || 0;
+  else ev[field] = val;
+  recalc();
+}
+
+function updateCost(id, idx, field, val) {
+  const ev = state.events.find(e => e.id === id);
+  if (!ev || !ev.costs[idx]) return;
+  ev.costs[idx][field] = field === 'amt' ? (parseFloat(val) || 0) : val;
+  recalc();
+}
+
+function addCost(id) {
+  const ev = state.events.find(e => e.id === id);
+  if (!ev) return;
+  ev.costs.push({ desc: '', amt: 0 });
+  const container = document.querySelector('[data-costs="' + id + '"]');
+  if (container) container.insertAdjacentHTML('beforeend', makeCostRow(id, ev.costs.length - 1, { desc: '', amt: 0 }));
+  recalc();
+}
+
+function removeCost(id, idx) {
+  const ev = state.events.find(e => e.id === id);
+  if (!ev) return;
+  ev.costs.splice(idx, 1);
+  renderAll();
+}
+
+function addEvent(term, week) {
+  const id = 'e' + state.nextId++;
+  state.events.push({ id, term, week: parseInt(week) || 1, name: 'New Event', type: 'social', tickets: 0, soldExp: 0, ticketPrice: 0, costs: [], pessMulti: 0.7, optMulti: 1.3 });
+  renderAll();
+}
+
+function removeEvent(id) {
+  state.events = state.events.filter(e => e.id !== id);
+  renderAll();
+}
+
+function updateSponsor(id, field, val) {
+  const sp = state.sponsors.find(s => s.id === id);
+  if (!sp) return;
+  sp[field] = field === 'amount' ? (parseFloat(val) || 0) : val;
+  recalc();
+}
+
+function toggleEvent(id) {
+  state.expanded[id] = !state.expanded[id];
+  const card = document.querySelector('[data-card="' + id + '"]');
+  const body = document.querySelector('[data-body="' + id + '"]');
+  const chev = document.querySelector('[data-chev="' + id + '"]');
+  if (!card) return;
+  if (state.expanded[id]) {
+    card.classList.add('expanded');
+    body.style.display = 'block';
+    chev.classList.add('open');
+  } else {
+    card.classList.remove('expanded');
+    body.style.display = 'none';
+    chev.classList.remove('open');
+  }
+}
+
+/* ── recalc (no re-render) ── */
+function recalc() {
+  const michExp = termProfit('mich', 'exp');
+  const lentExp = termProfit('lent', 'exp');
+  const total = michExp + lentExp;
+  const closing = state.opening + total;
+
+  document.getElementById('top-opening').textContent = fmt(state.opening);
+  document.getElementById('top-opening').className = 'bal-value neutral';
+
+  const pnlEl = document.getElementById('top-pnl');
+  pnlEl.textContent = fmt(total);
+  pnlEl.className = 'bal-value ' + (total >= 0 ? 'profit' : 'loss');
+
+  const clEl = document.getElementById('top-closing');
+  clEl.textContent = fmt(closing);
+  clEl.className = 'bal-value ' + (closing >= 0 ? 'profit' : 'loss');
+
+  ['mich', 'lent'].forEach(term => {
+    const openBal = term === 'mich' ? state.opening : state.opening + termProfit('mich', 'exp');
+    const closeBal = openBal + termProfit(term, 'exp');
+    const el = document.querySelector('[data-chbal="' + term + '"]');
+    if (el) el.innerHTML = 'Opens <strong>' + fmt(openBal) + '</strong> &rarr; closes <strong>' + fmt(closeBal) + '</strong>';
+
+    const sumEl = document.querySelector('[data-chapter-summary="' + term + '"]');
+    if (sumEl) {
+      sumEl.querySelector('.cs-pess').textContent = fmt(termProfit(term, 'pess'));
+      sumEl.querySelector('.cs-exp').textContent = fmt(termProfit(term, 'exp'));
+      sumEl.querySelector('.cs-opt').textContent = fmt(termProfit(term, 'opt'));
+    }
+  });
+
+  document.querySelectorAll('[data-ev-proj]').forEach(el => {
+    const ev = state.events.find(e => e.id === el.dataset.evProj);
+    if (!ev) return;
+    const ex = eventProfit(ev, 'exp');
+    el.textContent = fmt(ex);
+    el.style.color = ex >= 0 ? '#1B5C47' : '#C4552A';
+  });
+
+  document.querySelectorAll('[data-ev-scenarios]').forEach(el => {
+    const ev = state.events.find(e => e.id === el.dataset.evScenarios);
+    if (!ev) return;
+    el.querySelector('.pv').textContent = fmt(eventProfit(ev, 'pess'));
+    el.querySelector('.ev').textContent = fmt(eventProfit(ev, 'exp'));
+    el.querySelector('.ov').textContent = fmt(eventProfit(ev, 'opt'));
+  });
+
+  const lentClose = state.opening + termProfit('mich', 'exp') + termProfit('lent', 'exp');
+  const easterEl = document.getElementById('easter-handover');
+  if (easterEl) easterEl.textContent = fmt(lentClose);
+}
+
+/* ── HTML builders ── */
+function dotClass(t) { return t === 'profit' ? 'dot-profit' : t === 'educational' ? 'dot-educational' : 'dot-social'; }
+function tagClass(t) { return t === 'profit' ? 'tag-profit' : t === 'educational' ? 'tag-educational' : 'tag-social'; }
+
+function makeCostRow(eid, idx, cost) {
+  return '<div class="cost-row">' +
+    '<input type="text" value="' + (cost.desc || '') + '" placeholder="e.g. Venue hire" oninput="updateCost(\'' + eid + '\',' + idx + ',\'desc\',this.value)" />' +
+    '<input type="number" value="' + (cost.amt || 0) + '" placeholder="0.00" step="0.01" oninput="updateCost(\'' + eid + '\',' + idx + ',\'amt\',this.value)" />' +
+    '<button class="btn-icon" onclick="removeCost(\'' + eid + '\',' + idx + ')" title="Remove cost line"><i class="ti ti-x" aria-hidden="true"></i></button>' +
+    '</div>';
+}
+
+function makeEventCard(ev) {
+  const expProfit = eventProfit(ev, 'exp');
+  const isOpen = state.expanded[ev.id];
+  const costsHtml = ev.costs.map((c, i) => makeCostRow(ev.id, i, c)).join('');
+  return '<div class="event-card' + (isOpen ? ' expanded' : '') + '" data-card="' + ev.id + '">' +
+    '<div class="event-header" onclick="toggleEvent(\'' + ev.id + '\')" role="button" tabindex="0" aria-expanded="' + !!isOpen + '">' +
+      '<div class="event-type-dot ' + dotClass(ev.type) + '"></div>' +
+      '<div class="event-name">' + ev.name + '</div>' +
+      '<div class="event-meta">' +
+        '<span class="event-tag ' + tagClass(ev.type) + '">' + ev.type + '</span>' +
+        '<span class="event-projected" data-ev-proj="' + ev.id + '" style="color:' + (expProfit >= 0 ? '#1B5C47' : '#C4552A') + '">' + fmt(expProfit) + '</span>' +
+      '</div>' +
+      '<i class="ti ti-chevron-down event-chevron' + (isOpen ? ' open' : '') + '" data-chev="' + ev.id + '" aria-hidden="true"></i>' +
+    '</div>' +
+    '<div class="event-body" data-body="' + ev.id + '" style="display:' + (isOpen ? 'block' : 'none') + '">' +
+      '<div class="field-row">' +
+        '<div class="field-group"><label>Event name</label><input type="text" value="' + ev.name + '" oninput="updateEvent(\'' + ev.id + '\',\'name\',this.value);this.closest(\'.event-card\').querySelector(\'.event-name\').textContent=this.value" /></div>' +
+        '<div class="field-group"><label>Type</label><select onchange="updateEvent(\'' + ev.id + '\',\'type\',this.value)">' +
+          '<option value="profit"' + (ev.type === 'profit' ? ' selected' : '') + '>Profit-making</option>' +
+          '<option value="educational"' + (ev.type === 'educational' ? ' selected' : '') + '>Educational</option>' +
+          '<option value="social"' + (ev.type === 'social' ? ' selected' : '') + '>Social</option>' +
+        '</select></div>' +
+      '</div>' +
+      '<div class="field-row">' +
+        '<div class="field-group"><label>Ticket capacity</label><input type="number" value="' + ev.tickets + '" step="1" oninput="updateEvent(\'' + ev.id + '\',\'tickets\',this.value)" /></div>' +
+        '<div class="field-group"><label>Expected tickets sold</label><input type="number" value="' + ev.soldExp + '" step="1" oninput="updateEvent(\'' + ev.id + '\',\'soldExp\',this.value)" /></div>' +
+      '</div>' +
+      '<div class="field-row">' +
+        '<div class="field-group"><label>Ticket price (£)</label><input type="number" value="' + ev.ticketPrice + '" step="0.50" oninput="updateEvent(\'' + ev.id + '\',\'ticketPrice\',this.value)" /></div>' +
+        '<div class="field-group"><label>Week</label><input type="number" value="' + ev.week + '" min="1" max="8" step="1" oninput="updateEvent(\'' + ev.id + '\',\'week\',parseInt(this.value))" /></div>' +
+      '</div>' +
+      '<div class="field-row">' +
+        '<div class="field-group"><label>Pessimistic multiplier</label><input type="number" value="' + ev.pessMulti + '" step="0.05" min="0" max="1" oninput="updateEvent(\'' + ev.id + '\',\'pessMulti\',this.value)" /></div>' +
+        '<div class="field-group"><label>Optimistic multiplier</label><input type="number" value="' + ev.optMulti + '" step="0.05" min="1" max="2" oninput="updateEvent(\'' + ev.id + '\',\'optMulti\',this.value)" /></div>' +
+      '</div>' +
+      '<div class="costs-section">' +
+        '<div class="costs-title"><span>Itemised costs</span><button class="btn-add-cost" onclick="addCost(\'' + ev.id + '\')">+ add line</button></div>' +
+        '<div data-costs="' + ev.id + '">' + costsHtml + '</div>' +
+      '</div>' +
+      '<div class="scenario-row" data-ev-scenarios="' + ev.id + '">' +
+        '<div class="scenario-block pess"><div class="s-label">Pessimistic</div><div class="s-value pv">' + fmt(eventProfit(ev, 'pess')) + '</div></div>' +
+        '<div class="scenario-block exp"><div class="s-label">Expected</div><div class="s-value ev">' + fmt(eventProfit(ev, 'exp')) + '</div></div>' +
+        '<div class="scenario-block opt"><div class="s-label">Optimistic</div><div class="s-value ov">' + fmt(eventProfit(ev, 'opt')) + '</div></div>' +
+      '</div>' +
+      '<div class="card-actions">' +
+        '<button class="btn-remove" onclick="removeEvent(\'' + ev.id + '\')"><i class="ti ti-trash" aria-hidden="true"></i> remove event</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function makeSponsorCard(sp) {
+  return '<div class="sponsor-card">' +
+    '<div class="sponsor-header"><i class="ti ti-star" aria-hidden="true" style="color:#185FA5;font-size:16px"></i><span>Sponsorship</span></div>' +
+    '<div class="sponsor-grid">' +
+      '<input type="text" value="' + sp.name + '" placeholder="Sponsor / description" oninput="updateSponsor(\'' + sp.id + '\',\'name\',this.value)" />' +
+      '<input type="number" value="' + sp.amount + '" placeholder="£0" step="50" oninput="updateSponsor(\'' + sp.id + '\',\'amount\',this.value)" />' +
+    '</div>' +
+  '</div>';
+}
+
+function renderAll() {
+  const terms = [
+    { id: 'mich', label: 'Michaelmas 2026' },
+    { id: 'lent', label: 'Lent 2027' }
+  ];
+
+  let html = '';
+
+  terms.forEach(term => {
+    const openBal = term.id === 'mich' ? state.opening : state.opening + termProfit('mich', 'exp');
+    const closeBal = openBal + termProfit(term.id, 'exp');
+
+    const sponsorsHtml = state.sponsors.filter(s => s.term === term.id).map(makeSponsorCard).join('');
+
+    const weeks = [...new Set(state.events.filter(e => e.term === term.id).map(e => e.week))].sort((a, b) => a - b);
+    const weeksHtml = weeks.map(w => {
+      const evs = state.events.filter(e => e.term === term.id && e.week === w);
+      return '<div class="week-group">' +
+        '<div class="week-label">Week ' + w + '</div>' +
+        evs.map(makeEventCard).join('') +
+        '</div>';
+    }).join('');
+
+    html += '<section class="chapter" id="' + term.id + '" aria-label="' + term.label + '">' +
+      '<div class="chapter-header">' +
+        '<div class="chapter-name">' + term.label + '</div>' +
+        '<div class="chapter-balance" data-chbal="' + term.id + '">Opens <strong>' + fmt(openBal) + '</strong> &rarr; closes <strong>' + fmt(closeBal) + '</strong></div>' +
+      '</div>' +
+      '<div class="chapter-summary" data-chapter-summary="' + term.id + '">' +
+        '<div><div class="cs-label">Pessimistic net</div><div class="cs-value cs-pess" style="color:var(--terra)">' + fmt(termProfit(term.id, 'pess')) + '</div></div>' +
+        '<div><div class="cs-label">Expected net</div><div class="cs-value cs-exp" style="color:#7A5C1A">' + fmt(termProfit(term.id, 'exp')) + '</div></div>' +
+        '<div><div class="cs-label">Optimistic net</div><div class="cs-value cs-opt" style="color:var(--success-text)">' + fmt(termProfit(term.id, 'opt')) + '</div></div>' +
+      '</div>' +
+      sponsorsHtml +
+      weeksHtml +
+      '<button class="btn-add-event" onclick="addEvent(\'' + term.id + '\', 1)"><i class="ti ti-plus" aria-hidden="true"></i> add event to ' + term.label + '</button>' +
+    '</section>' +
+    '<div class="chapter-divider"></div>';
+  });
+
+  const lentClose = state.opening + termProfit('mich', 'exp') + termProfit('lent', 'exp');
+  html += '<section class="chapter" id="easter" aria-label="Easter 2027">' +
+    '<div class="chapter-header"><div class="chapter-name">Easter 2027</div></div>' +
+    '<div class="easter-placeholder">' +
+      '<p>This term is reserved for the incoming committee to plan.</p>' +
+      '<div class="easter-handover">Projected handover balance: <strong id="easter-handover">' + fmt(lentClose) + '</strong></div>' +
+    '</div>' +
+  '</section>';
+
+  document.getElementById('chapters-container').innerHTML = html;
+  recalc();
+}
+
+function scrollToTerm(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth' });
+  document.querySelectorAll('.spine-label, .spine-dot').forEach(el2 => {
+    el2.classList.toggle('active', el2.dataset.target === id);
+  });
+}
+
+/* ── Init ── */
+loadFromSheets();
+</script>
+</body>
+</html>
